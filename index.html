@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CORPSFAMILIE DER VOGELS — XXIe Lustrum Stille Veiling</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --rood: #8B1A1A;
+      --rood-dark: #6e1414;
+      --goud: #C9A84C;
+      --goud-light: #F0D080;
+      --bg: #f5f0e8;
+      --card-bg: #ffffff;
+      --text: #1a1a1a;
+      --text-muted: #666;
+      --border: rgba(0,0,0,0.1);
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* HEADER */
+    .header {
+      background: var(--rood);
+      padding: 2rem 1.5rem 1.5rem;
+      text-align: center;
+    }
+    .header h1 {
+      font-size: clamp(20px, 5vw, 32px);
+      font-weight: 600;
+      color: var(--goud-light);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+    .header .subtitle {
+      font-size: 13px;
+      color: var(--goud);
+      margin-top: 6px;
+      letter-spacing: 1px;
+    }
+    .ornament {
+      color: var(--goud);
+      font-size: 20px;
+      margin: 6px 0;
+    }
+
+    /* COUNTDOWN */
+    .countdown-bar {
+      background: var(--rood-dark);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .countdown-label { font-size: 12px; color: var(--goud); letter-spacing: 1px; text-transform: uppercase; }
+    .countdown-time { font-size: 16px; font-weight: 600; color: var(--goud-light); font-variant-numeric: tabular-nums; }
+
+    /* MAIN */
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
+
+    .section-title {
+      text-align: center;
+      font-size: 13px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--rood);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .section-title::before, .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--goud);
+      opacity: 0.5;
+    }
+
+    /* GRID */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+
+    /* CARD */
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(139,26,26,0.12); }
+    .card-top {
+      background: var(--rood);
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 38px;
+      position: relative;
+    }
+    .card-body { padding: 1rem; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    .card-title { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.3; }
+    .card-desc { font-size: 12px; color: var(--text-muted); line-height: 1.6; flex: 1; }
+    .card-footer {
+      padding: 0.875rem 1rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #faf7f2;
+    }
+    .bid-col { display: flex; flex-direction: column; gap: 2px; }
+    .bid-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .bid-amount { font-size: 20px; font-weight: 700; color: var(--rood); }
+    .bid-meta { font-size: 10px; color: var(--text-muted); }
+    .bid-btn {
+      background: var(--rood);
+      color: var(--goud-light);
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      letter-spacing: 0.5px;
+    }
+    .bid-btn:hover { background: var(--rood-dark); }
+    .bid-btn:disabled { background: #ccc; color: #999; cursor: not-allowed; }
+
+    /* LOADING STATE */
+    .loading-grid {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* MODAL */
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      background: #fff;
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 440px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .modal-header {
+      background: var(--rood);
+      padding: 1.25rem 1.5rem;
+    }
+    .modal-header h2 { font-size: 16px; font-weight: 600; color: var(--goud-light); }
+    .modal-header p { font-size: 12px; color: var(--goud); margin-top: 3px; }
+    .modal-body { padding: 1.5rem; }
+
+    /* STEPS */
+    .steps { display: flex; gap: 6px; margin-bottom: 1.25rem; }
+    .step { height: 4px; flex: 1; border-radius: 2px; background: #e0d6c8; }
+    .step.active { background: var(--rood); }
+    .step.done { background: var(--goud); }
+
+    .field { margin-bottom: 1rem; }
+    .field label { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 5px; font-weight: 500; }
+    .field input, .field select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text);
+      background: #fff;
+      transition: border-color 0.15s;
+    }
+    .field input:focus, .field select:focus { outline: none; border-color: var(--rood); }
+    .name-row { display: flex; gap: 8px; }
+    .name-row input { flex: 1; }
+    .gen-btn {
+      background: #f5f0e8;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: inherit;
+      color: var(--text-muted);
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .gen-btn:hover { background: #ede6d6; }
+
+    .contact-toggle { display: flex; gap: 8px; margin-bottom: 8px; }
+    .contact-toggle button {
+      flex: 1;
+      padding: 8px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+      background: #f5f0e8;
+      border: 1px solid #ddd;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .contact-toggle button.active { background: var(--rood); color: var(--goud-light); border-color: var(--rood); }
+
+    .error { font-size: 12px; color: #c0392b; margin-top: 6px; display: none; padding: 8px 10px; background: #fdf0f0; border-radius: 6px; }
+
+    .modal-actions { display: flex; gap: 8px; margin-top: 1.25rem; }
+    .modal-actions button {
+      flex: 1;
+      padding: 11px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .btn-sec { background: #fff; border: 1px solid #ddd; color: var(--text-muted); }
+    .btn-sec:hover { background: #f5f0e8; }
+    .btn-pri { background: var(--rood); color: var(--goud-light); border: none; }
+    .btn-pri:hover { background: var(--rood-dark); }
+    .btn-pri:disabled { background: #ccc; color: #999; cursor: not-allowed; }
+
+    /* SUCCESS */
+    .success-body { padding: 2rem 1.5rem; text-align: center; }
+    .success-icon {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: #eaf5e9; display: flex; align-items: center;
+      justify-content: center; margin: 0 auto 1rem;
+      font-size: 24px; color: #27ae60;
+    }
+    .success-body h3 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+    .success-body p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+    .biedcode-badge {
+      display: inline-block;
+      background: var(--rood);
+      color: var(--goud-light);
+      padding: 6px 18px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      margin: 0.75rem 0;
+      letter-spacing: 1px;
+    }
+
+    /* FOOTER */
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+      font-size: 12px;
+      border-top: 1px solid var(--border);
+      margin-top: 2rem;
+    }
+    footer span { color: var(--rood); font-weight: 600; }
+
+    @media (max-width: 480px) {
+      .grid { grid-template-columns: 1fr; }
+      .modal { max-width: 100%; border-radius: var(--radius) var(--radius) 0 0; }
+      .overlay { align-items: flex-end; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="ornament">✦ ✦ ✦</div>
+  <h1>Vogels — XXIe Lustrum</h1>
+  <p class="subtitle">Stille Veiling &nbsp;·&nbsp; 3 mei 2026</p>
+  <div class="ornament">✦ ✦ ✦</div>
+</header>
+
+<div class="countdown-bar">
+  <span class="countdown-label">Veiling sluit over</span>
+  <span class="countdown-time" id="countdown">laden...</span>
+</div>
+
+<main>
+  <p class="section-title">Kavels</p>
+  <div id="grid" class="grid">
+    <div class="loading-grid">Biedingen laden...</div>
+  </div>
+</main>
+
+<footer>
+  <span>VOGELS XXIe Lustrum</span> &nbsp;·&nbsp; Stille veiling sluit 3 mei 2026 om 12:00
+</footer>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="m-titel">Bod uitbrengen</h2>
+      <p id="m-sub"></p>
+    </div>
+    <div id="m-content"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STAP 1: Vul hier jouw Supabase gegevens in
+// Ga naar: Supabase → Project Settings → API
+// ============================================================
+const SUPABASE_URL = 'https://gdgyeblyyxczotstrhnu.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdkZ3llYmx5eXhjem90c3RyaG51Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NjYyNDYsImV4cCI6MjA5MjM0MjI0Nn0.TV4PqQ6Nz9r2OuWrDSNp02s7XO0VSYt95bYq5gZWW7E'; // <-- Dit nog invullen!
+// ============================================================
+
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const VOGELS = ["Arend","Valk","Specht","Merel","Gans","Reiger","Ooievaar","Kraai","Ekster","Uil","Kievit","Buizerd","Kluut","Grutto","Lepelaar","Meerkoet","Fuut","Kuif","Albatros","Kondor"];
+const VERBODEN = ['kut','fuck','shit','lul','tering','kanker','godverdomme','hoer','bitch'];
+
+const kavels = [
+  { num:"48", titel:"2 privé Hyrox trainingen",        desc:"Exclusieve sessies met NL kampioenen Larissa van Meerten & Marcel Beishuizen in de V.E.T gym in Zeist.", min:150, emoji:"🏋️" },
+  { num:"49", titel:"Douwe Draws",                      desc:"Persoonlijke illustratie volledig op maat. Laat jouw verhaal vastleggen in een unieke tekening.",         min:75,  emoji:"✏️" },
+  { num:"46", titel:"Drie sessies bij psycholoog",      desc:"Drie vertrouwelijke sessies met Edith voor persoonlijke groei, stress of loopbaanvragen.",                 min:100, emoji:"🧠" },
+  { num:"33", titel:"Tanden bleken",                    desc:"Professionele bleekbehandeling in de regio Utrecht, inclusief persoonlijk bleekbitje.",                   min:80,  emoji:"🦷" },
+  { num:"G",  titel:"Golf masterclass 4 personen",      desc:"Twee uur golfles met PGA-professional Michelle de Boer op Golfbaan Zeegersloot.",                         min:120, emoji:"⛳" },
+  { num:"8",  titel:"Customs bidons (300x)",             desc:"300 volledig te personaliseren bidons met jouw logo, naam of design.",                                    min:200, emoji:"🚴" },
+  { num:"10", titel:"Dagje Duinrell & lunch (10p)",     desc:"Toegang tot Duinrell inclusief Tikibad en heerlijke lunch voor 10 personen.",                             min:250, emoji:"🎢" },
+  { num:"16", titel:"6 uur varen Bergse Plas (6p)",     desc:"Boottocht met luxe borrelarrangement: kaas, vleeswaren, verse oesters en drank.",                        min:180, emoji:"⛵" },
+  { num:"H",  titel:"Huisje in Dalfsen",                desc:"Weekendverblijf in het gelukkigste dorp van Nederland, omringd door groen langs de Vecht.",               min:130, emoji:"🏡" },
+  { num:"V",  titel:"Vuurkorf",                         desc:"Robuuste vuurkorf van Esschert design, duurzaam ontwerp voor jarenlang plezier.",                         min:60,  emoji:"🔥" }
+];
+
+// Lokale state
+let hoogsteBiedingen = {};
+let hoogsteBieders = {};
+let profiel = null;
+let actief = null;
+let contactMode = 'email';
+
+kavels.forEach(k => { hoogsteBiedingen[k.num] = k.min; hoogsteBieders[k.num] = null; });
+
+// ============================================================
+// DATABASE FUNCTIES
+// ============================================================
+
+async function laadBiedingen() {
+  const { data, error } = await db
+    .from('biedingen')
+    .select('kavel_num, bedrag, biedcode')
+    .order('bedrag', { ascending: false });
+
+  if (error) { console.error('Fout bij laden:', error); return; }
+
+  kavels.forEach(k => {
+    const beste = data.find(b => b.kavel_num === k.num);
+    if (beste) {
+      hoogsteBiedingen[k.num] = beste.bedrag;
+      hoogsteBieders[k.num] = beste.biedcode;
+    }
+  });
+  renderGrid();
+}
+
+async function registreerBieder(naam, biedcode, contact, contactType) {
+  const { error } = await db.from('bieders').insert([{ naam, biedcode, contact, contact_type: contactType }]);
+  if (error) {
+    if (error.code === '23505') return { ok: false, msg: 'Deze biedcode is al in gebruik, kies een andere.' };
+    return { ok: false, msg: 'Er ging iets mis bij de registratie. Probeer opnieuw.' };
+  }
+  return { ok: true };
+}
+
+async function plaatsBod(kavelNum, bedrag, biedcode) {
+  // Controleer nogmaals huidig hoogste bod
+  const { data } = await db
+    .from('biedingen')
+    .select('bedrag')
+    .eq('kavel_num', kavelNum)
+    .order('bedrag', { ascending: false })
+    .limit(1);
+
+  const huidig = data && data.length > 0 ? data[0].bedrag : kavels.find(k=>k.num===kavelNum).min;
+  if (bedrag <= huidig) return { ok: false, huidig };
+
+  const { error } = await db.from('biedingen').insert([{ kavel_num: kavelNum, bedrag, biedcode }]);
+  if (error) return { ok: false, msg: 'Er ging iets mis. Probeer opnieuw.' };
+  return { ok: true };
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  kavels.forEach(k => {
+    const hoogste = hoogsteBiedingen[k.num];
+    const bieder = hoogsteBieders[k.num];
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-top">${k.emoji}</div>
+      <div class="card-body">
+        <div class="card-title">${k.titel}</div>
+        <div class="card-desc">${k.desc}</div>
+      </div>
+      <div class="card-footer">
+        <div class="bid-col">
+          <span class="bid-label">Hoogste bod</span>
+          <span class="bid-amount">€${hoogste}</span>
+          <span class="bid-meta">${bieder ? 'door ' + bieder : 'Minimum: €' + k.min}</span>
+        </div>
+        <button class="bid-btn" onclick="openModal('${k.num}')">Bied</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ============================================================
+// MODAL
+// ============================================================
+
+function openModal(num) {
+  actief = kavels.find(k => k.num === num);
+  document.getElementById('m-titel').textContent = actief.titel;
+  document.getElementById('m-sub').textContent = `Huidig hoogste bod: €${hoogsteBiedingen[actief.num]}`;
+  profiel ? showStap2() : showStap1();
+  document.getElementById('overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('overlay').classList.remove('open');
+}
+
+function genVogel() {
+  return VOGELS[Math.floor(Math.random() * VOGELS.length)] + Math.floor(10 + Math.random() * 90);
+}
+
+function isGepast(code) {
+  return !VERBODEN.some(w => code.toLowerCase().includes(w));
+}
+
+function showStap1() {
+  contactMode = 'email';
+  const gegenereerd = genVogel();
+  document.getElementById('m-content').innerHTML = `
+    <div class="modal-body">
+      <div class="steps"><div class="step active"></div><div class="step"></div></div>
+      <p style="font-size:13px;color:#666;margin-bottom:1.25rem;line-height:1.6;">
+        Registreer je eenmalig. Jouw biedcode is anoniem zichtbaar — alleen de organisatie weet wie je bent.
+      </p>
+      <div class="field">
+        <label>Jouw naam (blijft privé)</label>
+        <input type="text" id="s1-naam" placeholder="Voor- en achternaam" />
+      </div>
+      <div class="field">
+        <label>Biedcode (zichtbaar voor andere bieders)</label>
+        <div class="name-row">
+          <input type="text" id="s1-code" placeholder="bijv. Arend42" value="${gegenereerd}" maxlength="20" />
+          <button class="gen-btn" onclick="document.getElementById('s1-code').value=genVogel()">Nieuwe</button>
+        </div>
+        <div style="font-size:11px;color:#999;margin-top:4px;">Of typ zelf een naam (geen scheldwoorden)</div>
+      </div>
+      <div class="field">
+        <label>Hoe mogen wij contact opnemen na de veiling?</label>
+        <div class="contact-toggle">
+          <button id="tog-email" class="active" onclick="setContact('email')">E-mail</button>
+          <button id="tog-tel" onclick="setContact('tel')">Telefoon</button>
+        </div>
+        <input type="email" id="s1-contact" placeholder="jouw@email.nl" />
+      </div>
+      <div class="error" id="s1-err">Vul alle velden correct in en kies een gepaste biedcode.</div>
+      <div class="modal-actions">
+        <button class="btn-sec" onclick="closeModal()">Annuleren</button>
+        <button class="btn-pri" id="s1-btn" onclick="stap1Door()">Verder →</button>
+      </div>
+    </div>`;
+}
+
+function setContact(mode) {
+  contactMode = mode;
+  document.getElementById('tog-email').classList.toggle('active', mode === 'email');
+  document.getElementById('tog-tel').classList.toggle('active', mode === 'tel');
+  const inp = document.getElementById('s1-contact');
+  inp.type = mode === 'email' ? 'email' : 'tel';
+  inp.placeholder = mode === 'email' ? 'jouw@email.nl' : '06-12345678';
+  inp.value = '';
+}
+
+async function stap1Door() {
+  const naam = document.getElementById('s1-naam').value.trim();
+  const code = document.getElementById('s1-code').value.trim();
+  const contact = document.getElementById('s1-contact').value.trim();
+  const err = document.getElementById('s1-err');
+  const btn = document.getElementById('s1-btn');
+
+  if (!naam || !code || !contact || !isGepast(code)) {
+    err.textContent = 'Vul alle velden correct in en kies een gepaste biedcode.';
+    err.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Even wachten...';
+  const result = await registreerBieder(naam, code, contact, contactMode);
+  if (!result.ok) {
+    err.textContent = result.msg;
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Verder →';
+    return;
+  }
+
+  profiel = { naam, code, contact, contactMode };
+  showStap2();
+}
+
+function showStap2() {
+  const huidig = hoogsteBiedingen[actief.num];
+  document.getElementById('m-sub').textContent = `Huidig hoogste bod: €${huidig}`;
+  document.getElementById('m-content').innerHTML = `
+    <div class="modal-body">
+      <div class="steps"><div class="step done"></div><div class="step active"></div></div>
+      <p style="font-size:13px;color:#666;margin-bottom:1.25rem;line-height:1.6;">
+        Je biedt als <strong style="color:#8B1A1A;">${profiel.code}</strong>.<br>
+        Huidig hoogste bod: <strong>€${huidig}</strong>
+      </p>
+      <div class="field">
+        <label>Jouw bod in euro's</label>
+        <input type="number" id="s2-bod" placeholder="Minimaal €${huidig + 1}" min="${huidig + 1}" step="1" />
+      </div>
+      <div class="error" id="s2-err"></div>
+      <div class="modal-actions">
+        <button class="btn-sec" onclick="closeModal()">Annuleren</button>
+        <button class="btn-pri" id="s2-btn" onclick="submitBod()">Bod bevestigen</button>
+      </div>
+    </div>`;
+}
+
+async function submitBod() {
+  const bod = parseFloat(document.getElementById('s2-bod').value);
+  const err = document.getElementById('s2-err');
+  const btn = document.getElementById('s2-btn');
+
+  if (isNaN(bod) || bod <= hoogsteBiedingen[actief.num]) {
+    err.textContent = `Jouw bod moet hoger zijn dan €${hoogsteBiedingen[actief.num]}.`;
+    err.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Bezig...';
+  const result = await plaatsBod(actief.num, bod, profiel.code);
+
+  if (!result.ok) {
+    if (result.huidig) {
+      err.textContent = `Iemand was je voor! Het hoogste bod is nu €${result.huidig}. Bied hoger.`;
+      hoogsteBiedingen[actief.num] = result.huidig;
+      renderGrid();
+    } else {
+      err.textContent = result.msg || 'Er ging iets mis. Probeer opnieuw.';
+    }
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Bod bevestigen';
+    return;
+  }
+
+  hoogsteBiedingen[actief.num] = bod;
+  hoogsteBieders[actief.num] = profiel.code;
+  renderGrid();
+
+  document.getElementById('m-content').innerHTML = `
+    <div class="success-body">
+      <div class="success-icon">✓</div>
+      <h3>Bod geplaatst!</h3>
+      <div class="biedcode-badge">${profiel.code}</div>
+      <p>
+        Je bod van <strong>€${bod}</strong> op <strong>${actief.titel}</strong> is opgeslagen.<br><br>
+        Als je wint nemen we contact op via je ${profiel.contactMode === 'email' ? 'e-mailadres' : 'telefoonnummer'}.
+      </p>
+      <div class="modal-actions" style="margin-top:1.25rem;">
+        <button class="btn-pri" style="flex:1;" onclick="closeModal()">Sluiten</button>
+      </div>
+    </div>`;
+}
+
+// Sluit modal bij klik buiten
+document.getElementById('overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ============================================================
+// COUNTDOWN
+// ============================================================
+function updateCountdown() {
+  const eind = new Date('2026-05-03T12:00:00');
+  const nu = new Date();
+  const diff = eind - nu;
+  if (diff <= 0) { document.getElementById('countdown').textContent = 'Veiling gesloten'; return; }
+  const d = Math.floor(diff / 86400000);
+  const h = Math.floor((diff % 86400000) / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  document.getElementById('countdown').textContent = `${d}d ${h}u ${m}m ${s}s`;
+}
+
+// ============================================================
+// START
+// ============================================================
+laadBiedingen();
+updateCountdown();
+setInterval(updateCountdown, 1000);
+setInterval(laadBiedingen, 30000); // Elke 30 sec verversen
+</script>
+</body>
+</html>
