@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Beheer — Vogels Stille Veiling</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    :root{
+      --rood:#8B1A1A;--rood-dark:#6e1414;--goud:#C9A84C;--goud-light:#F0D080;
+      --bg:#f5f0e8;--text:#1a1a1a;--text-muted:#666;--border:rgba(0,0,0,0.1);--radius:12px;
+    }
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+    .header{background:var(--rood);padding:1.25rem;text-align:center;}
+    .header h1{font-size:18px;font-weight:600;color:var(--goud-light);letter-spacing:2px;}
+    .header p{font-size:12px;color:var(--goud);margin-top:4px;}
+
+    main{max-width:900px;margin:0 auto;padding:1.5rem 1rem;}
+
+    .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1rem;margin-bottom:2rem;}
+    .stat{background:#fff;border-radius:var(--radius);border:1px solid var(--border);padding:1rem;text-align:center;}
+    .stat-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;}
+    .stat-value{font-size:24px;font-weight:700;color:var(--rood);margin-top:4px;}
+
+    .kavel-block{background:#fff;border-radius:var(--radius);border:1px solid var(--border);margin-bottom:1.25rem;overflow:hidden;}
+    .kavel-header{background:var(--rood);padding:0.875rem 1.25rem;display:flex;align-items:center;justify-content:space-between;}
+    .kavel-header h2{font-size:14px;font-weight:600;color:var(--goud-light);}
+    .kavel-header .hoogste{font-size:13px;color:var(--goud);}
+    .winnaar{background:#faf7f2;padding:0.875rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:1rem;flex-wrap:wrap;}
+    .winnaar-badge{background:var(--rood);color:var(--goud-light);padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;}
+    .winnaar-info{font-size:13px;color:var(--text);}
+    .winnaar-info span{color:var(--text-muted);font-size:12px;margin-left:6px;}
+    .mail-btn{margin-left:auto;background:var(--rood);color:var(--goud-light);border:none;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block;}
+    .mail-btn:hover{background:var(--rood-dark);}
+
+    table{width:100%;border-collapse:collapse;font-size:13px;}
+    th{text-align:left;padding:0.6rem 1.25rem;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);background:#fafafa;}
+    td{padding:0.7rem 1.25rem;border-bottom:1px solid var(--border);vertical-align:middle;}
+    tr:last-child td{border-bottom:none;}
+    tr.overboden td{color:var(--text-muted);}
+    tr.overboden td:first-child{text-decoration:line-through;}
+    .badge-hoog{background:#eaf5e9;color:#27ae60;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;}
+    .badge-out{background:#fdf0f0;color:#c0392b;padding:2px 8px;border-radius:4px;font-size:11px;}
+
+    .geen-biedingen{padding:1.25rem;color:var(--text-muted);font-size:13px;font-style:italic;}
+    .refresh-btn{background:var(--rood);color:var(--goud-light);border:none;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:600;margin-bottom:1.5rem;}
+    .refresh-btn:hover{background:var(--rood-dark);}
+    .last-update{font-size:11px;color:var(--text-muted);margin-left:10px;}
+
+    footer{text-align:center;padding:1.5rem;color:var(--text-muted);font-size:11px;margin-top:1rem;}
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Corpsfamilie der Vogels — Beheer</h1>
+  <p>Overzicht stille veiling · alleen voor organisatie</p>
+</div>
+
+<main>
+  <button class="refresh-btn" onclick="laadAlles()">Vernieuwen</button>
+  <span class="last-update" id="last-update"></span>
+
+  <div class="stats" id="stats">
+    <div class="stat"><div class="stat-label">Totaal bieders</div><div class="stat-value" id="s-bieders">...</div></div>
+    <div class="stat"><div class="stat-label">Totaal biedingen</div><div class="stat-value" id="s-biedingen">...</div></div>
+    <div class="stat"><div class="stat-label">Totale opbrengst</div><div class="stat-value" id="s-opbrengst">...</div></div>
+    <div class="stat"><div class="stat-label">Kavels met bod</div><div class="stat-value" id="s-kavels">...</div></div>
+  </div>
+
+  <div id="overzicht"></div>
+</main>
+
+<footer>Corpsfamilie der Vogels · XXI<span style="font-size:0.75em;">e</span> Lustrum · Stille Veiling Beheer</footer>
+
+<script>
+const SUPABASE_URL = "https://gdgyeblyyxczotstrhnu.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdkZ3llYmx5eXhjem90c3RyaG51Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NjYyNDYsImV4cCI6MjA5MjM0MjI0Nn0.TV4PqQ6Nz9r2OuWrDSNp02s7XO0VSYt95bYq5gZWW7E";
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const kavels = [
+  { num:"49", titel:"Douwe Draws" },
+  { num:"48", titel:"2 privé Hyrox trainingen" },
+  { num:"46", titel:"Drie sessies bij psycholoog" },
+  { num:"33", titel:"Tanden bleken" },
+  { num:"G",  titel:"Golf masterclass 4 personen" },
+  { num:"8",  titel:"Customs bidons (300x)" },
+  { num:"10", titel:"Dagje Duinrell & lunch (10p)" },
+  { num:"16", titel:"6 uur varen Bergse Plas (6p)" },
+  { num:"H",  titel:"Huisje in Dalfsen" },
+  { num:"UL", titel:"Rondleiding atelier Urbann Larsson" },
+];
+
+async function laadAlles() {
+  document.getElementById("last-update").textContent = "Laden...";
+
+  // Load all biedingen with bieder info
+  const { data: biedingen } = await db
+    .from("biedingen")
+    .select("kavel_num, bedrag, biedcode, geplaatst_op")
+    .order("geplaatst_op", { ascending: false });
+
+  const { data: bieders } = await db
+    .from("bieders")
+    .select("biedcode, naam, contact");
+
+  if (!biedingen || !bieders) {
+    document.getElementById("overzicht").innerHTML = "<p>Fout bij laden.</p>";
+    return;
+  }
+
+  // Build bieder lookup
+  const biederMap = {};
+  bieders.forEach(b => { biederMap[b.biedcode] = b; });
+
+  // Stats
+  const totalOpbrengst = kavels.reduce((sum, k) => {
+    const kBiedingen = biedingen.filter(b => b.kavel_num === k.num);
+    if (kBiedingen.length === 0) return sum;
+    return sum + Math.max(...kBiedingen.map(b => b.bedrag));
+  }, 0);
+  const kavelsMetBod = kavels.filter(k => biedingen.some(b => b.kavel_num === k.num)).length;
+
+  document.getElementById("s-bieders").textContent = bieders.length;
+  document.getElementById("s-biedingen").textContent = biedingen.length;
+  document.getElementById("s-opbrengst").textContent = "€" + totalOpbrengst;
+  document.getElementById("s-kavels").textContent = kavelsMetBod + "/10";
+
+  // Build overzicht
+  const overzicht = document.getElementById("overzicht");
+  overzicht.innerHTML = "";
+
+  kavels.forEach(k => {
+    const kBiedingen = biedingen
+      .filter(b => b.kavel_num === k.num)
+      .sort((a, b) => b.bedrag - a.bedrag);
+
+    const block = document.createElement("div");
+    block.className = "kavel-block";
+
+    const hoogste = kBiedingen.length > 0 ? kBiedingen[0].bedrag : 0;
+    const winnaarCode = kBiedingen.length > 0 ? kBiedingen[0].biedcode : null;
+    const winnaar = winnaarCode ? biederMap[winnaarCode] : null;
+
+    let winnaarHTML = "";
+    if (winnaar) {
+      const mailSubject = encodeURIComponent(`Stille Veiling Vogels — ${k.titel}`);
+      const mailBody = encodeURIComponent(`Beste ${winnaar.naam},
+
+Je bent momenteel de hoogste bieder op "${k.titel}" met een bod van €${hoogste}.
+
+Met vriendelijke groet,
+de LuCo — Corpsfamilie der Vogels`);
+      winnaarHTML = `
+        <div class="winnaar">
+          <span class="winnaar-badge">Hoogste bieder</span>
+          <div class="winnaar-info">
+            <strong>${winnaar.naam}</strong>
+            <span>${winnaar.contact}</span>
+            <span>· ${winnaarCode}</span>
+          </div>
+          <a class="mail-btn" href="mailto:${winnaar.contact}?subject=${mailSubject}&body=${mailBody}">Mail sturen</a>
+        </div>`;
+    }
+
+    let rijen = "";
+    if (kBiedingen.length === 0) {
+      rijen = `<div class="geen-biedingen">Nog geen biedingen op dit kavel.</div>`;
+    } else {
+      rijen = `<table>
+        <thead><tr>
+          <th>Bod</th><th>Biedcode</th><th>Naam</th><th>E-mail</th><th>Tijdstip</th><th>Status</th>
+        </tr></thead>
+        <tbody>
+          ${kBiedingen.map((b, i) => {
+            const bieder = biederMap[b.biedcode] || {};
+            const tijd = new Date(b.geplaatst_op).toLocaleString("nl-NL", {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+            const isHoogste = i === 0;
+            return `<tr class="${isHoogste ? "" : "overboden"}">
+              <td><strong>€${b.bedrag}</strong></td>
+              <td>${b.biedcode}</td>
+              <td>${bieder.naam || "?"}</td>
+              <td>${bieder.contact || "?"}</td>
+              <td>${tijd}</td>
+              <td>${isHoogste ? '<span class="badge-hoog">Hoogste</span>' : '<span class="badge-out">Overboden</span>'}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
+    }
+
+    block.innerHTML = `
+      <div class="kavel-header">
+        <h2>${k.titel}</h2>
+        <span class="hoogste">${hoogste > 0 ? "€" + hoogste : "Geen biedingen"}</span>
+      </div>
+      ${winnaarHTML}
+      ${rijen}`;
+
+    overzicht.appendChild(block);
+  });
+
+  const nu = new Date().toLocaleTimeString("nl-NL");
+  document.getElementById("last-update").textContent = `Laatste update: ${nu}`;
+}
+
+laadAlles();
+setInterval(laadAlles, 60000);
+</script>
+</body>
+</html>
