@@ -416,6 +416,8 @@ async function stap1Door() {
 }
 
 function showStap2() {
+  const eind = new Date("2026-05-06T00:00:00");
+  const veilingGesloten = new Date() >= eind;
   const huidig = hoogsteBiedingen[actief.num];
   const stap = getBiedStap(huidig);
   const minBod = huidig + stap;
@@ -423,18 +425,20 @@ function showStap2() {
   document.getElementById("m-content").innerHTML = `
     <div class="modal-body">
       <div class="steps"><div class="step done"></div><div class="step active"></div></div>
-      <p style="font-size:13px;color:#666;margin-bottom:1.25rem;line-height:1.6;">
+      ${veilingGesloten
+        ? `<div class="error" style="display:block;margin-bottom:1rem;">De veiling is gesloten. Er kunnen geen biedingen meer worden geplaatst.</div>`
+        : `<p style="font-size:13px;color:#666;margin-bottom:1.25rem;line-height:1.6;">
         Je biedt als <strong style="color:#8B1A1A;">${profiel.code}</strong>.<br>
         Minimaal bod: <strong>€${minBod}</strong> (stappen van €${stap})
       </p>
       <div class="field">
         <label>Jouw bod in euro's</label>
         <input type="number" id="s2-bod" placeholder="Minimaal €${minBod}" min="${minBod}" step="${stap}"/>
-      </div>
+      </div>`}
       <div class="error" id="s2-err"></div>
       <div class="modal-actions">
         <button class="btn-sec" onclick="closeModal()">Annuleren</button>
-        <button class="btn-pri" id="s2-btn" onclick="submitBod()">Bod bevestigen</button>
+        <button class="btn-pri" id="s2-btn" onclick="submitBod()" ${veilingGesloten ? 'disabled' : ''}>${veilingGesloten ? 'Veiling gesloten' : 'Bod bevestigen'}</button>
       </div>
     </div>`;
 }
