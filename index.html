@@ -440,6 +440,16 @@ function showStap2() {
 }
 
 async function submitBod() {
+  const eind = new Date("2026-05-06T00:00:00");
+  if (new Date() >= eind) {
+    const err = document.getElementById("s2-err");
+    err.textContent = "De veiling is gesloten. Er kunnen geen biedingen meer worden geplaatst.";
+    err.style.display = "block";
+    document.getElementById("s2-btn").disabled = true;
+    document.getElementById("s2-btn").textContent = "Veiling gesloten";
+    return;
+  }
+
   const bod = parseFloat(document.getElementById("s2-bod").value);
   const err = document.getElementById("s2-err");
   const btn = document.getElementById("s2-btn");
@@ -475,20 +485,22 @@ async function submitBod() {
     </div>`;
 }
 
-document.getElementById("overlay").addEventListener("click", function(e) { if(e.target===this) closeModal(); });
-
 function updateCountdown() {
   const eind = new Date("2026-05-06T00:00:00");
   const nu = new Date();
   const diff = eind - nu;
-  if (diff <= 0) { document.getElementById("countdown").textContent = "Veiling gesloten"; return; }
+  if (diff <= 0) {
+    document.getElementById("countdown").textContent = "Veiling gesloten";
+    const btn = document.getElementById("s2-btn");
+    if (btn) { btn.disabled = true; btn.textContent = "Veiling gesloten"; }
+    return;
+  }
   const d = Math.floor(diff/86400000);
   const h = Math.floor((diff%86400000)/3600000);
   const m = Math.floor((diff%3600000)/60000);
   const s = Math.floor((diff%60000)/1000);
   document.getElementById("countdown").textContent = `${d}d ${h}u ${m}m ${s}s`;
 }
-
 laadBiedingen();
 updateCountdown();
 setInterval(updateCountdown, 1000);
